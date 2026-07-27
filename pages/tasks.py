@@ -1,6 +1,9 @@
 from datetime import date
+
 from celery import shared_task
+
 from .models import Page
+
 
 @shared_task
 def unblock_expired_pages():

@@ -1,4 +1,6 @@
 from django.db import models
+
+
 class Page(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -8,9 +10,10 @@ class Page(models.Model):
     unblock_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
-    tags = models.ManyToManyField('tags.Tag')
-    
+
+    tags = models.ManyToManyField("tags.Tag")
+
+
 class Follower(models.Model):
     page = models.ForeignKey(Page, on_delete=models.CASCADE)
     user_id = models.PositiveIntegerField()

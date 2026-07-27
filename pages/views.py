@@ -1,10 +1,14 @@
 from rest_framework import generics
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
-from authentication.permissions import IsAdminOrModeratorOrOwner, IsAuthenticated, IsPageOwner
+
+from authentication.permissions import (IsAdminOrModeratorOrOwner,
+                                        IsAuthenticated, IsPageOwner)
+from posts.serializers import PostSerializer
+
 from .models import Follower, Page
 from .serializers import FollowerSerializer, PageSerializer
-from posts.serializers import PostSerializer
+
 
 class PageListCreateView(generics.ListCreateAPIView):
     queryset = Page.objects.all()
@@ -43,8 +47,11 @@ class UnfollowPageView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, page_id):
-        Follower.objects.filter(page_id=page_id, user_id=request.user.get("user_id")).delete()
+        Follower.objects.filter(
+            page_id=page_id, user_id=request.user.get("user_id")
+        ).delete()
         return Response({"detail": "Unfollowed"}, status=200)
+
 
 class PageFollowersView(generics.ListAPIView):
     serializer_class = FollowerSerializer
@@ -53,13 +60,17 @@ class PageFollowersView(generics.ListAPIView):
     def get_queryset(self):
         return Follower.objects.filter(page_id=self.kwargs["page_id"])
 
+
 class FeedView(generics.ListAPIView):
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         from posts.models import Post
+
         followed_page_ids = Follower.objects.filter(
             user_id=self.request.user.get("user_id")
         ).values_list("page_id", flat=True)
-        return Post.objects.filter(page_id__in=followed_page_ids).order_by("-created_at")
+        return Post.objects.filter(page_id__in=followed_page_ids).order_by(
+            "-created_at"
+        )

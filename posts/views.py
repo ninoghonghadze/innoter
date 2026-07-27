@@ -1,10 +1,14 @@
 from django.shortcuts import render
 from rest_framework import generics
 from rest_framework.exceptions import PermissionDenied
-from authentication.permissions import IsAdminOrModeratorOrOwner, IsAuthenticated
+
+from authentication.permissions import (IsAdminOrModeratorOrOwner,
+                                        IsAuthenticated)
 from pages.models import Page
+
 from .models import Post
 from .serializers import PostSerializer
+
 
 class PostCreateView(generics.CreateAPIView):
     serializer_class = PostSerializer
@@ -15,6 +19,7 @@ class PostCreateView(generics.CreateAPIView):
         if page.user_id != self.request.user.get("user_id"):
             raise PermissionDenied("Only the page owner can post")
         serializer.save(page=page)
+
 
 class PostDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Post.objects.all()
