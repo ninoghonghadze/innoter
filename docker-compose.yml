@@ -24,5 +24,27 @@ services:
       - mysql_data:/var/lib/mysql
   redis:
     image: redis:7-alpine
+  celery-worker:
+    build: .
+    command: uv run celery -A innotter worker --loglevel=info
+    volumes:
+      - .:/app
+      - /app/.venv
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+  celery-beat:
+    build: .
+    command: uv run celery -A innotter beat --loglevel=info
+    volumes:
+      - .:/app
+      - /app/.venv
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
 volumes:
   mysql_data:
