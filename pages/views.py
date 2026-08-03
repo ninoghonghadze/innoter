@@ -17,9 +17,10 @@ class PageListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(user_id=self.request.user.get("user_id"))
-
-
+        serializer.save(
+            user_id=self.request.user.get("user_id"),
+            group_id=self.request.user.get("group_id"),
+        )
 class PageDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Page.objects.all()
     serializer_class = PageSerializer

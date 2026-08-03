@@ -23,6 +23,7 @@ class PageSerializer(serializers.ModelSerializer):
             "tags",
             "created_at",
             "updated_at",
+            "group_id",
         ]
         read_only_fields = [
             "id",
@@ -32,9 +33,8 @@ class PageSerializer(serializers.ModelSerializer):
             "tags",
             "created_at",
             "updated_at",
+            "group_id",
         ]
-
-
 class FollowerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Follower
