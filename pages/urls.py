@@ -7,6 +7,7 @@ from .views import (
     PageListCreateView,
     UnfollowPageView,
     FeedView,
+    PageAddTagsView,
 )
 urlpatterns = [
     path("page", PageListCreateView.as_view(), name="page-list-create"),
@@ -16,4 +17,5 @@ urlpatterns = [
     path("page/<int:page_id>/followers", PageFollowersView.as_view(), name="page-followers"),
     path("feed", FeedView.as_view(), name="feed"),
     path("page/<int:page_id>/block", BlockPageView.as_view(), name="page-block"),
+    path("page/<int:page_id>/tags", PageAddTagsView.as_view(), name="page-add-tags"),
 ]
