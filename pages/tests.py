@@ -3,22 +3,17 @@ import pytest
 from django.conf import settings
 from django.test import TestCase
 from rest_framework.test import APIClient
-
 from .models import Page
-
 
 def make_token(user_id=101, role="USER"):
     return jwt.encode(
         {"user_id": user_id, "role": role}, settings.JWT_SECRET_KEY, algorithm="HS256"
     )
-
-
 @pytest.mark.django_db
 def test_create_page_requires_auth():
     client = APIClient()
     response = client.post("/page", {"name": "Test Page"})
     assert response.status_code == 403
-
 
 @pytest.mark.django_db
 def test_create_page_success():

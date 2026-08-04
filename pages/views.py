@@ -1,14 +1,16 @@
+import logging
 from rest_framework import generics
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.response import Response
-
-from authentication.permissions import (IsAdminOrModeratorOrOwner,
-                                        IsAuthenticated, IsPageOwner)
+from authentication.permissions import (IsAdmin, IsAdminOrModeratorOrOwner, 
+     IsAuthenticated, IsModerator, IsPageOwner,)
 from posts.serializers import PostSerializer
 from .models import Follower, Page
 from .serializers import FollowerSerializer, PageSerializer
-from datetime import datetime
-from authentication.permissions import IsAdmin, IsModerator
+from rest_framework.parsers import MultiPartParser
+from .s3 import upload_image_to_s3
+
+logger = logging.getLogger(__name__)
 
 class PageListCreateView(generics.ListCreateAPIView):
     queryset = Page.objects.all()
@@ -16,10 +18,12 @@ class PageListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(
+        page = serializer.save(
             user_id=self.request.user.get("user_id"),
             group_id=self.request.user.get("group_id"),
         )
+        logger.info(f"Page {page.id} created by user {self.request.user.get('user_id')}")
+
 class PageDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Page.objects.all()
     serializer_class = PageSerializer
@@ -31,6 +35,11 @@ class PageDetailView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method == "PATCH":
             return [IsAuthenticated(), IsPageOwner()]
         return [IsAuthenticated()]
+    def get_serializer_context(self):
+        return {"request": self.request}
+    def perform_destroy(self, instance):
+        logger.info(f"Page {instance.id} deleted by user {self.request.user.get('user_id')}")
+        instance.delete()
 
 class FollowPageView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
@@ -40,6 +49,7 @@ class FollowPageView(generics.GenericAPIView):
         if not page:
             raise NotFound("Page not found")
         Follower.objects.get_or_create(page=page, user_id=request.user.get("user_id"))
+        logger.info(f"User {request.user.get('user_id')} followed page {page_id}")
         return Response({"detail": "Followed"}, status=200)
 
 class UnfollowPageView(generics.GenericAPIView):
@@ -49,6 +59,7 @@ class UnfollowPageView(generics.GenericAPIView):
         Follower.objects.filter(
             page_id=page_id, user_id=request.user.get("user_id")
         ).delete()
+        logger.info(f"User {request.user.get('user_id')} unfollowed page {page_id}")
         return Response({"detail": "Unfollowed"}, status=200)
 
 class PageFollowersView(generics.ListAPIView):
@@ -68,7 +79,7 @@ class PageFollowersView(generics.ListAPIView):
         is_owner = page.user_id == user_id
 
         if not (is_admin or is_moderator_same_group or is_owner):
-            from rest_framework.exceptions import PermissionDenied
+            logger.warning(f"User {user_id} denied viewing followers for page {page.id}")
             raise PermissionDenied("Not allowed to view followers")
         return Follower.objects.filter(page_id=page.id)
 
@@ -95,18 +106,26 @@ class BlockPageView(generics.GenericAPIView):
             raise NotFound("Page not found")
 
         is_admin = role == "ADMIN"
-        is_moderator_same_group = role == "MODERATOR" and request.user.get("group_id") == page.group_id
+        is_moderator_same_group = (
+            role == "MODERATOR" and request.user.get("group_id") == page.group_id
+        )
 
         if not (is_admin or is_moderator_same_group):
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Only Admin or same-group Moderator can block a page")
+            logger.warning(f"User {request.user.get('user_id')} denied blocking page {page_id}")
+            raise PermissionDenied(
+                "Only Admin or same-group Moderator can block a page"
+            )
 
         unblock_date = request.data.get("unblock_date")
         page.is_blocked = True
         page.unblock_date = unblock_date
         page.save()
-        return Response({"detail": "Page blocked", "unblock_date": unblock_date}, status=200)
-        
+        logger.info(
+            f"Page {page_id} blocked by user {request.user.get('user_id')} until {unblock_date}"
+        )
+        return Response(
+            {"detail": "Page blocked", "unblock_date": unblock_date}, status=200
+        )
 class PageAddTagsView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
@@ -115,12 +134,39 @@ class PageAddTagsView(generics.GenericAPIView):
         if not page:
             raise NotFound("Page not found")
         if page.user_id != request.user.get("user_id"):
-            from rest_framework.exceptions import PermissionDenied
+            logger.warning(f"User {request.user.get('user_id')} denied adding tags to page {page_id}")
             raise PermissionDenied("Only the page owner can add tags")
 
         tag_ids = request.data.get("tags", [])
         from tags.models import Tag
+
         valid_tags = Tag.objects.filter(id__in=tag_ids)
         page.tags.add(*valid_tags)
+        logger.info(f"Tags {tag_ids} added to page {page_id}")
+
+        return Response(PageSerializer(page).data, status=200)
+
+class PageImageUploadView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser]
+
+    def patch(self, request, page_id):
+        page = Page.objects.filter(id=page_id).first()
+        if not page:
+            raise NotFound("Page not found")
+        if page.user_id != request.user.get("user_id"):
+            logger.warning(
+                f"User {request.user.get('user_id')} denied updating image for page {page_id}"
+            )
+            raise PermissionDenied("Only the page owner can update the image")
+
+        image_file = request.FILES.get("image")
+        if not image_file:
+            return Response({"detail": "No image file provided"}, status=400)
+
+        url = upload_image_to_s3(image_file, image_file.name)
+        page.image_url = url
+        page.save()
+        logger.info(f"Image updated for page {page_id}")
 
         return Response(PageSerializer(page).data, status=200)

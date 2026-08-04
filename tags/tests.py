@@ -3,12 +3,15 @@ import pytest
 from django.conf import settings
 from django.test import TestCase
 from rest_framework.test import APIClient
+
 from .models import Tag
+
 
 def make_token(user_id=101, role="USER"):
     return jwt.encode(
         {"user_id": user_id, "role": role}, settings.JWT_SECRET_KEY, algorithm="HS256"
     )
+
 
 @pytest.mark.django_db
 def test_create_tag():
@@ -18,6 +21,7 @@ def test_create_tag():
         "/tag", {"name": "nature"}, HTTP_AUTHORIZATION=f"Bearer {token}"
     )
     assert response.status_code == 201
+
 
 @pytest.mark.django_db
 def test_filter_tags_by_name():
