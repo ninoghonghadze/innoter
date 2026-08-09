@@ -9,6 +9,8 @@ from .models import Follower, Page
 from .serializers import FollowerSerializer, PageSerializer
 from rest_framework.parsers import MultiPartParser
 from .s3 import upload_image_to_s3
+from drf_spectacular.utils import extend_schema
+from .serializers import BlockPageSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -99,23 +101,21 @@ class FeedView(generics.ListAPIView):
 class BlockPageView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(request=BlockPageSerializer)
     def patch(self, request, page_id):
         role = request.user.get("role")
         page = Page.objects.filter(id=page_id).first()
         if not page:
             raise NotFound("Page not found")
-
         is_admin = role == "ADMIN"
         is_moderator_same_group = (
             role == "MODERATOR" and request.user.get("group_id") == page.group_id
         )
-
         if not (is_admin or is_moderator_same_group):
             logger.warning(f"User {request.user.get('user_id')} denied blocking page {page_id}")
             raise PermissionDenied(
                 "Only Admin or same-group Moderator can block a page"
             )
-
         unblock_date = request.data.get("unblock_date")
         page.is_blocked = True
         page.unblock_date = unblock_date

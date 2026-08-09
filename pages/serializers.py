@@ -83,3 +83,5 @@ class PageSerializer(serializers.ModelSerializer):
         end = start + limit
 
         return PostSerializer(posts[start:end], many=True).data
+class BlockPageSerializer(serializers.Serializer):
+    unblock_date = serializers.DateField()
