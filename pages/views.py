@@ -6,11 +6,10 @@ from authentication.permissions import (IsAdmin, IsAdminOrModeratorOrOwner,
      IsAuthenticated, IsModerator, IsPageOwner,)
 from posts.serializers import PostSerializer
 from .models import Follower, Page
-from .serializers import FollowerSerializer, PageSerializer
+from .serializers import BlockPageSerializer, FollowerSerializer, ImageUploadSerializer, PageSerializer
 from rest_framework.parsers import MultiPartParser
 from .s3 import upload_image_to_s3
 from drf_spectacular.utils import extend_schema
-from .serializers import BlockPageSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +149,7 @@ class PageImageUploadView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser]
 
+    @extend_schema(request=ImageUploadSerializer)
     def patch(self, request, page_id):
         page = Page.objects.filter(id=page_id).first()
         if not page:

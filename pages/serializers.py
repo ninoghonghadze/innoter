@@ -85,3 +85,5 @@ class PageSerializer(serializers.ModelSerializer):
         return PostSerializer(posts[start:end], many=True).data
 class BlockPageSerializer(serializers.Serializer):
     unblock_date = serializers.DateField()
+class ImageUploadSerializer(serializers.Serializer):
+    image = serializers.ImageField()
